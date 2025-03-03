@@ -6,6 +6,8 @@ A utility for managing multiple shell profiles with different configurations and
 
 - Select from multiple user profiles at shell startup
 - Automatically switch between different shell configurations
+- Manage profiles using the `profilectl` command-line tool
+- Create profiles from reusable templates
 - Integrates with git-user-manager to set the appropriate git identity
 - Automatically switches to zsh when a .zshrc file is present
 - Sets profile-specific gitconfig
@@ -27,9 +29,44 @@ Each profile can have its own:
 - oh-my-zsh customizations
 - Integration with git-user-manager for git identity
 
-## Creating Profiles
+## Managing Profiles with profilectl
 
-Create a new profile by adding a directory to `~/.profiles/`:
+Shell User Manager provides the `profilectl` command-line tool for managing profiles:
+
+```bash
+# Create a new profile from a template
+profilectl create username [template-name]
+
+# List all available profiles
+profilectl list
+
+# Delete a profile
+profilectl delete username
+
+# Edit a profile's configuration file
+profilectl edit username [filename]
+```
+
+### Template Management
+
+`profilectl` also lets you manage reusable templates:
+
+```bash
+# List available templates
+profilectl template-list
+
+# Create a new template
+profilectl template-create template-name
+
+# Edit a template file
+profilectl template-edit template-name [filename]
+```
+
+Templates are stored in `~/.profiles/templates/` and contain configuration files that will be copied when creating new profiles.
+
+## Creating Profiles Manually
+
+You can also create profiles manually by adding a directory to `~/.profiles/`:
 
 ```bash
 mkdir -p ~/.profiles/personal

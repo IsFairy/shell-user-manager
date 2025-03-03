@@ -6,7 +6,9 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 PROFILES_DIR="$HOME/.profiles"
+TEMPLATES_DIR="$PROFILES_DIR/templates"
 SELECTOR_SCRIPT="/etc/profile.d/00-profile-selector.sh"
+PROFILECTL_SCRIPT="/usr/local/bin/profilectl"
 
 echo "Setting up shell-user-manager..."
 
@@ -24,10 +26,98 @@ if [[ ! -d "$PROFILES_DIR" ]]; then
     chown $(logname):$(id -gn $(logname)) "$PROFILES_DIR"
 fi
 
+# Create templates directory and sample templates
+echo "Creating templates directory at $TEMPLATES_DIR"
+mkdir -p "$TEMPLATES_DIR/basic-template"
+chown -R $(logname):$(id -gn $(logname)) "$TEMPLATES_DIR"
+
+# Create basic template files
+cat > "$TEMPLATES_DIR/basic-template/.bashrc" << 'EOF'
+# Basic .bashrc template
+# You can customize this file for your shell environment
+
+# Set default editor
+export EDITOR=nano
+
+# Set custom prompt
+PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+
+# Add aliases
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
+
+# Add your custom configurations below
+EOF
+
+cat > "$TEMPLATES_DIR/basic-template/.gitconfig" << 'EOF'
+[user]
+    name = Your Name
+    email = your.email@example.com
+[core]
+    editor = nano
+[color]
+    ui = auto
+[init]
+    defaultBranch = main
+EOF
+
+# Create zshrc template file
+cat > "$TEMPLATES_DIR/basic-template/.zshrc" << 'EOF'
+# Basic .zshrc template
+# You can customize this file for your shell environment
+
+# Set default editor
+export EDITOR=nano
+
+# Set up history
+HISTFILE=~/.zsh_history
+HISTSIZE=10000
+SAVEHIST=10000
+setopt appendhistory
+
+# Use emacs keybindings
+bindkey -e
+
+# Basic zsh completion
+autoload -Uz compinit
+compinit
+
+# Set custom prompt
+PROMPT='%F{green}%n@%m%f:%F{blue}%~%f$ '
+
+# Add aliases
+alias ll='ls -alF'
+alias la='ls -A'
+alias l='ls -CF'
+
+# Check if oh-my-zsh is installed and use it
+if [[ -d "$HOME/.oh-my-zsh" ]]; then
+  export ZSH="$HOME/.oh-my-zsh"
+  export ZSH_CUSTOM="$HOME_PROFILE/.oh-my-zsh-custom"
+  ZSH_THEME="robbyrussell"
+  plugins=(git)
+  source $ZSH/oh-my-zsh.sh
+fi
+
+# Add your custom configurations below
+EOF
+
+# Set permissions for template files
+chmod 644 "$TEMPLATES_DIR/basic-template/.bashrc"
+chmod 644 "$TEMPLATES_DIR/basic-template/.gitconfig"
+chmod 644 "$TEMPLATES_DIR/basic-template/.zshrc"
+chown -R $(logname):$(id -gn $(logname)) "$TEMPLATES_DIR/basic-template"
+
 # Install profile selector script
 echo "Installing profile selector script to $SELECTOR_SCRIPT"
 cp "$SCRIPT_DIR/src/00-profile-selector.sh" "$SELECTOR_SCRIPT"
 chmod 755 "$SELECTOR_SCRIPT"
+
+# Install profilectl command
+echo "Installing profilectl command to $PROFILECTL_SCRIPT"
+cp "$SCRIPT_DIR/src/profilectl" "$PROFILECTL_SCRIPT"
+chmod 755 "$PROFILECTL_SCRIPT"
 
 # Create directories for bash_logout.d and zsh/zlogout.d if they don't exist
 mkdir -p /etc/bash_logout.d
@@ -139,4 +229,15 @@ else
 fi
 
 echo "Setup complete. You can now select profiles at login."
-echo "Create new profiles by adding directories to $PROFILES_DIR"
+echo "Manage profiles with the profilectl command:"
+echo "  profilectl create <username> [template]   - Create new profile"
+echo "  profilectl delete <username>              - Delete a profile"
+echo "  profilectl edit <username> [filename]     - Edit profile files"
+echo "  profilectl list                           - List profiles"
+echo ""
+echo "Manage templates with:"
+echo "  profilectl template-list                  - List templates"
+echo "  profilectl template-create <name>         - Create new template"
+echo "  profilectl template-edit <name> [file]    - Edit template"
+echo ""
+echo "Templates are stored in $TEMPLATES_DIR"

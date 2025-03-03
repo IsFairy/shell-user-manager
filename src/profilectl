@@ -1,0 +1,253 @@
+#!/bin/bash
+# profilectl - Shell user profile manager utility
+
+PROFILES_DIR="$HOME/.profiles"
+TEMPLATES_DIR="$PROFILES_DIR/templates"
+
+# Check if profiles directory exists
+check_profiles_dir() {
+    if [[ ! -d "$PROFILES_DIR" ]]; then
+        echo "❌ Profiles directory doesn't exist at $PROFILES_DIR"
+        echo "Run the setup script first."
+        exit 1
+    fi
+}
+
+# Check if templates directory exists
+check_templates_dir() {
+    if [[ ! -d "$TEMPLATES_DIR" ]]; then
+        echo "❌ Templates directory doesn't exist at $TEMPLATES_DIR"
+        echo "Run the setup script first."
+        exit 1
+    fi
+}
+
+# Setup oh-my-zsh directories if needed
+setup_oh_my_zsh() {
+    local profile="$1"
+    # Create oh-my-zsh custom directory if oh-my-zsh is installed
+    if [[ -d "$HOME/.oh-my-zsh" ]]; then
+        echo "ℹ️ Detected oh-my-zsh, creating custom directory for $profile"
+        mkdir -p "$PROFILES_DIR/$profile/.oh-my-zsh-custom/themes"
+        mkdir -p "$PROFILES_DIR/$profile/.oh-my-zsh-custom/plugins"
+        chmod -R 700 "$PROFILES_DIR/$profile/.oh-my-zsh-custom"
+    fi
+}
+
+# List available templates
+list_templates() {
+    check_templates_dir
+    echo "✨ Available Templates ✨"
+    for template in "$TEMPLATES_DIR"/*; do
+        if [[ -d "$template" ]]; then
+            echo "  $(basename "$template")"
+        fi
+    done
+}
+
+# Filter out templates and special directories when listing profiles
+list_profiles() {
+    check_profiles_dir
+    echo "✨ Available Profiles ✨"
+    for item in "$PROFILES_DIR"/*; do
+        if [[ -d "$item" && "$(basename "$item")" != "templates" ]]; then
+            echo "  $(basename "$item")"
+        fi
+    done
+}
+
+case "$1" in
+    create)
+        PROFILE="$2"
+        TEMPLATE="${3:-basic-template}"
+        
+        check_profiles_dir
+        check_templates_dir
+        
+        if [[ -z "$PROFILE" ]]; then
+            echo "❌ Profile name is required"
+            echo "Usage: profilectl create <username> [template]"
+            exit 1
+        fi
+        
+        if [[ -d "$PROFILES_DIR/$PROFILE" ]]; then
+            echo "😒 Profile $PROFILE already exists."
+            exit 1
+        fi
+        
+        if [[ ! -d "$TEMPLATES_DIR/$TEMPLATE" ]]; then
+            echo "🤔 Template $TEMPLATE doesn't exist."
+            echo "Available templates:"
+            list_templates
+            exit 1
+        fi
+        
+        # Create profile directory
+        mkdir -p "$PROFILES_DIR/$PROFILE"
+        
+        # Copy template files
+        if [[ -f "$TEMPLATES_DIR/$TEMPLATE/.bashrc" ]]; then
+            cp "$TEMPLATES_DIR/$TEMPLATE/.bashrc" "$PROFILES_DIR/$PROFILE/.bashrc"
+        else
+            touch "$PROFILES_DIR/$PROFILE/.bashrc"
+        fi
+        
+        if [[ -f "$TEMPLATES_DIR/$TEMPLATE/.zshrc" ]]; then
+            cp "$TEMPLATES_DIR/$TEMPLATE/.zshrc" "$PROFILES_DIR/$PROFILE/.zshrc"
+        else
+            touch "$PROFILES_DIR/$PROFILE/.zshrc"
+        fi
+        
+        if [[ -f "$TEMPLATES_DIR/$TEMPLATE/.gitconfig" ]]; then
+            cp "$TEMPLATES_DIR/$TEMPLATE/.gitconfig" "$PROFILES_DIR/$PROFILE/.gitconfig"
+        else
+            touch "$PROFILES_DIR/$PROFILE/.gitconfig"
+        fi
+        
+        # Setup oh-my-zsh if installed
+        setup_oh_my_zsh "$PROFILE"
+        
+        # Set correct permissions
+        chmod -R 700 "$PROFILES_DIR/$PROFILE"
+        
+        echo "✨ Created profile $PROFILE from $TEMPLATE template."
+        ;;
+    
+    delete)
+        PROFILE="$2"
+        check_profiles_dir
+        
+        if [[ -z "$PROFILE" ]]; then
+            echo "❌ Profile name is required"
+            echo "Usage: profilectl delete <username>"
+            exit 1
+        fi
+        
+        if [[ ! -d "$PROFILES_DIR/$PROFILE" ]]; then
+            echo "🧐 Profile $PROFILE doesn't exist."
+            exit 1
+        fi
+        
+        if [[ "$PROFILE" == "templates" ]]; then
+            echo "⛔ Cannot delete the templates directory."
+            exit 1
+        fi
+        
+        read -p "❗ Really delete profile $PROFILE? [y/N]: " confirm
+        [[ "$confirm" =~ ^[Yy]$ ]] && rm -rf "$PROFILES_DIR/$PROFILE" && echo "🔥 Profile $PROFILE deleted."
+        ;;
+    
+    edit)
+        PROFILE="$2"
+        FILE="${3:-.bashrc}"
+        check_profiles_dir
+        
+        if [[ -z "$PROFILE" ]]; then
+            echo "❌ Profile name is required"
+            echo "Usage: profilectl edit <username> [filename]"
+            exit 1
+        fi
+        
+        if [[ ! -d "$PROFILES_DIR/$PROFILE" ]]; then
+            echo "🤔 Profile $PROFILE doesn't exist."
+            exit 1
+        fi
+        
+        if [[ "$PROFILE" == "templates" ]]; then
+            echo "⛔ Use 'profilectl template-edit' to edit templates."
+            exit 1
+        fi
+        
+        # Make sure the file starts with a dot if not provided
+        if [[ ! "$FILE" =~ ^\. ]]; then
+            FILE=".$FILE"
+        fi
+        
+        if [[ ! -f "$PROFILES_DIR/$PROFILE/$FILE" ]]; then
+            echo "📝 Creating new file: $FILE"
+            touch "$PROFILES_DIR/$PROFILE/$FILE"
+        fi
+        
+        ${EDITOR:-nano} "$PROFILES_DIR/$PROFILE/$FILE"
+        echo "✏️ Edited $FILE for profile $PROFILE."
+        ;;
+    
+    template-list)
+        list_templates
+        ;;
+    
+    template-create)
+        TEMPLATE="$2"
+        check_templates_dir
+        
+        if [[ -z "$TEMPLATE" ]]; then
+            echo "❌ Template name is required"
+            echo "Usage: profilectl template-create <template-name>"
+            exit 1
+        fi
+        
+        if [[ -d "$TEMPLATES_DIR/$TEMPLATE" ]]; then
+            echo "😒 Template $TEMPLATE already exists."
+            exit 1
+        fi
+        
+        mkdir -p "$TEMPLATES_DIR/$TEMPLATE"
+        touch "$TEMPLATES_DIR/$TEMPLATE/.bashrc"
+        touch "$TEMPLATES_DIR/$TEMPLATE/.zshrc"
+        touch "$TEMPLATES_DIR/$TEMPLATE/.gitconfig"
+        chmod -R 755 "$TEMPLATES_DIR/$TEMPLATE"
+        
+        echo "✨ Created template $TEMPLATE"
+        echo "Use 'profilectl template-edit $TEMPLATE [filename]' to edit template files."
+        ;;
+    
+    template-edit)
+        TEMPLATE="$2"
+        FILE="${3:-.bashrc}"
+        check_templates_dir
+        
+        if [[ -z "$TEMPLATE" ]]; then
+            echo "❌ Template name is required"
+            echo "Usage: profilectl template-edit <template-name> [filename]"
+            exit 1
+        fi
+        
+        if [[ ! -d "$TEMPLATES_DIR/$TEMPLATE" ]]; then
+            echo "🤔 Template $TEMPLATE doesn't exist."
+            exit 1
+        fi
+        
+        # Make sure the file starts with a dot if not provided
+        if [[ ! "$FILE" =~ ^\. ]]; then
+            FILE=".$FILE"
+        fi
+        
+        if [[ ! -f "$TEMPLATES_DIR/$TEMPLATE/$FILE" ]]; then
+            echo "📝 Creating new file: $FILE"
+            touch "$TEMPLATES_DIR/$TEMPLATE/$FILE"
+        fi
+        
+        ${EDITOR:-nano} "$TEMPLATES_DIR/$TEMPLATE/$FILE"
+        echo "✏️ Edited $FILE for template $TEMPLATE."
+        ;;
+    
+    list)
+        list_profiles
+        ;;
+    
+    help|*)
+        echo "✨ Shell Profile Manager ✨"
+        echo "Usage:"
+        echo "  create <username> [template]       - Create new profile"
+        echo "  delete <username>                  - Delete a profile"
+        echo "  edit <username> [filename]         - Edit profile files (.bashrc default)"
+        echo "  list                               - List profiles"
+        echo ""
+        echo "Template Commands:"
+        echo "  template-list                      - List available templates"
+        echo "  template-create <template-name>    - Create new template"
+        echo "  template-edit <template> [filename]- Edit template files (.bashrc default)"
+        ;;
+esac
+
+exit 0
