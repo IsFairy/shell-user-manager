@@ -29,6 +29,10 @@ echo "Installing profile selector script to $SELECTOR_SCRIPT"
 cp "$SCRIPT_DIR/src/00-profile-selector.sh" "$SELECTOR_SCRIPT"
 chmod 755 "$SELECTOR_SCRIPT"
 
+# Create directories for bash_logout.d and zsh/zlogout.d if they don't exist
+mkdir -p /etc/bash_logout.d
+mkdir -p /etc/zsh/zlogout.d
+
 # Setup bash_logout and zlogout to clean environment
 cat > /etc/bash_logout.d/profile-cleanup.sh << 'EOF'
 #!/bin/bash
@@ -51,10 +55,6 @@ if [[ -n "$HOME_PROFILE" || -n "$CURRENT_PROFILE" ]]; then
     echo "Profile environment cleaned."
 fi
 EOF
-
-# Create directories for bash_logout.d and zsh/zlogout.d if they don't exist
-mkdir -p /etc/bash_logout.d
-mkdir -p /etc/zsh/zlogout.d
 
 chmod 755 /etc/bash_logout.d/profile-cleanup.sh
 chmod 755 /etc/zsh/zlogout.d/profile-cleanup.zsh
