@@ -23,6 +23,15 @@ fi
 # Array of distributions to test
 distributions=("arch" "ubuntu" "debian" "rocky")
 
+# First run the profilectl test
+echo -e "\n${YELLOW}Running profilectl tests...${NC}"
+if "$SCRIPT_DIR/test_profilectl.sh"; then
+    echo -e "${GREEN}✓ profilectl tests passed${NC}"
+else
+    echo -e "${RED}✗ profilectl tests failed${NC}"
+    exit_code=1
+fi
+
 # Run tests for each distribution
 for distro in "${distributions[@]}"; do
     echo -e "\n${YELLOW}Testing on $distro...${NC}"
