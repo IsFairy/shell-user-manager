@@ -38,9 +38,20 @@ cat > /etc/bash_logout.d/profile-cleanup.sh << 'EOF'
 #!/bin/bash
 # Clean up profile environment variables
 if [[ -n "$HOME_PROFILE" || -n "$CURRENT_PROFILE" ]]; then
+    echo "Cleaning up profile environment..."
+    # Profile variables
     unset HOME_PROFILE
     unset CURRENT_PROFILE
+    
+    # Git variables
     unset GIT_CONFIG_GLOBAL
+    
+    # oh-my-zsh variables
+    unset ZSH_CUSTOM
+    
+    # zsh variables
+    unset ZDOTDIR
+    
     echo "Profile environment cleaned."
 fi
 EOF
@@ -49,9 +60,20 @@ cat > /etc/zsh/zlogout.d/profile-cleanup.zsh << 'EOF'
 #!/bin/zsh
 # Clean up profile environment variables
 if [[ -n "$HOME_PROFILE" || -n "$CURRENT_PROFILE" ]]; then
+    echo "Cleaning up profile environment..."
+    # Profile variables
     unset HOME_PROFILE
     unset CURRENT_PROFILE
+    
+    # Git variables
     unset GIT_CONFIG_GLOBAL
+    
+    # oh-my-zsh variables
+    unset ZSH_CUSTOM
+    
+    # zsh variables
+    unset ZDOTDIR
+    
     echo "Profile environment cleaned."
 fi
 EOF
@@ -74,6 +96,37 @@ if command -v git-user-manager &>/dev/null; then
             touch "$PROFILES_DIR/$profile/.bashrc"
             touch "$PROFILES_DIR/$profile/.zshrc"
             touch "$PROFILES_DIR/$profile/.gitconfig"
+            
+            # Create oh-my-zsh custom directory if oh-my-zsh is installed
+            if [[ -d "/home/$(logname)/.oh-my-zsh" ]]; then
+                echo "Detected oh-my-zsh, creating custom directory for $profile"
+                mkdir -p "$PROFILES_DIR/$profile/.oh-my-zsh-custom/themes"
+                mkdir -p "$PROFILES_DIR/$profile/.oh-my-zsh-custom/plugins"
+                
+                # Create a sample .zshrc with oh-my-zsh configuration if it doesn't exist
+                if [[ ! -s "$PROFILES_DIR/$profile/.zshrc" ]]; then
+                    cat > "$PROFILES_DIR/$profile/.zshrc" << 'EOF'
+# Path to oh-my-zsh installation
+export ZSH=$HOME/.oh-my-zsh
+
+# Set profile-specific custom directory
+export ZSH_CUSTOM=$HOME_PROFILE/.oh-my-zsh-custom
+
+# Set theme
+ZSH_THEME="robbyrussell"
+
+# Set plugins
+plugins=(git)
+
+# Source oh-my-zsh
+source $ZSH/oh-my-zsh.sh
+
+# User configuration below
+EOF
+                fi
+                
+                chown -R $(logname):$(id -gn $(logname)) "$PROFILES_DIR/$profile/.oh-my-zsh-custom"
+            fi
             
             chown $(logname):$(id -gn $(logname)) "$PROFILES_DIR/$profile/.bashrc"
             chown $(logname):$(id -gn $(logname)) "$PROFILES_DIR/$profile/.zshrc"

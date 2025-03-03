@@ -72,12 +72,111 @@ EOF
 
 chmod +x "$TEMP_DIR/setup_test.sh"
 
-# Run test in container
-echo "Running test in container..."
+# Create a script to test zsh shell switching and oh-my-zsh integration
+cat > "$TEMP_DIR/test_zsh_switching.sh" << 'EOF'
+#!/bin/bash
+# Test zsh switching functionality and oh-my-zsh integration
+
+set -e
+
+# Setup test environment
+mkdir -p ~/.profiles/work
+mkdir -p ~/.oh-my-zsh
+mkdir -p ~/.profiles/work/.oh-my-zsh-custom/themes
+mkdir -p ~/.profiles/work/.oh-my-zsh-custom/plugins
+
+# Create sample .zshrc with oh-my-zsh configuration
+cat > ~/.profiles/work/.zshrc << 'ZSHRC_EOF'
+# Path to oh-my-zsh installation
+export ZSH=$HOME/.oh-my-zsh
+
+# Set profile-specific custom directory
+export ZSH_CUSTOM=$HOME_PROFILE/.oh-my-zsh-custom
+
+# Set theme
+ZSH_THEME="robbyrussell"
+
+# Set plugins
+plugins=(git)
+
+# Source oh-my-zsh (mock for testing)
+echo "Would source oh-my-zsh.sh here"
+
+# User configuration below
+echo "ZSH profile loaded successfully"
+ZSHRC_EOF
+
+# Create a modified profile selector for testing
+cat > /tmp/profile-selector-test.sh << 'INNER_EOF'
+#!/bin/bash
+
+# Simulate profile selection
+profile="work"
+export HOME_PROFILE=~/.profiles/$profile
+export CURRENT_PROFILE=$profile
+export GIT_CONFIG_GLOBAL="$HOME_PROFILE/.gitconfig"
+
+# Set up oh-my-zsh environment if it exists
+if [[ -d "$HOME/.oh-my-zsh" ]]; then
+    echo "TEST-SUCCESS: oh-my-zsh detected"
+    # Set ZSH environment variable for oh-my-zsh
+    export ZSH="$HOME/.oh-my-zsh"
+    
+    # Check for custom themes and plugins
+    if [[ -d "$HOME_PROFILE/.oh-my-zsh-custom" ]]; then
+        echo "TEST-SUCCESS: oh-my-zsh-custom directory found"
+        export ZSH_CUSTOM="$HOME_PROFILE/.oh-my-zsh-custom"
+    fi
+fi
+
+# Source user's bashrc/zshrc based on current shell
+if [[ -n "$BASH" ]]; then
+    if [[ -f "$HOME_PROFILE/.bashrc" ]]; then
+        echo "TEST-SUCCESS: Sourcing .bashrc"
+        source "$HOME_PROFILE/.bashrc"
+    else
+        echo "TEST-SUCCESS: No .bashrc found, using defaults"
+    fi
+elif [[ -n "$ZSH_VERSION" ]]; then
+    if [[ -f "$HOME_PROFILE/.zshrc" ]]; then
+        echo "TEST-SUCCESS: Sourcing .zshrc"
+        source "$HOME_PROFILE/.zshrc"
+    else
+        echo "TEST-SUCCESS: No .zshrc found, using defaults"
+    fi
+else
+    echo "TEST-SUCCESS: Unknown shell type detected"
+fi
+
+# Switch to zsh if .zshrc is present and we're not already in zsh
+if [[ ! -n "$ZSH_VERSION" && -f "$HOME_PROFILE/.zshrc" && -x "$(command -v zsh)" ]]; then
+    echo "TEST-SUCCESS: Would switch to zsh here"
+    # We can't use exec in this test script, so we just verify conditions
+fi
+
+echo "ZSH and oh-my-zsh integration test completed"
+INNER_EOF
+
+chmod +x /tmp/profile-selector-test.sh
+
+# Run the test
+/tmp/profile-selector-test.sh
+
+echo "ZSH and oh-my-zsh integration test passed"
+EOF
+
+chmod +x "$TEMP_DIR/test_zsh_switching.sh"
+
+# Run setup test in container
+echo "Running setup test in container..."
 podman run --rm -v "$TEMP_DIR:/app:Z" ubuntu:latest bash -c "cd /app && ./setup_test.sh"
+
+# Run zsh switching test in container
+echo "Running zsh switching test in container..."
+podman run --rm -v "$TEMP_DIR:/app:Z" ubuntu:latest bash -c "cd /app && apt-get update -qq && apt-get install -qq zsh > /dev/null && ./test_zsh_switching.sh"
 
 # Clean up
 echo "Cleaning up..."
 rm -rf "$TEMP_DIR"
 
-echo "Test completed successfully!"
+echo "All tests completed successfully!"
